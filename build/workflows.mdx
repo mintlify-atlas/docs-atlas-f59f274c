@@ -1,0 +1,291 @@
+---
+title: "OpenLens GitHub Actions Workflows: Build, Check, Clear"
+description: "Three GitHub Actions workflows power OpenLens: main.yml builds and releases binaries, check.yml polls upstream versions, and clear.yml cleans old assets."
+---
+
+OpenLens uses three GitHub Actions workflows that together automate version polling, binary compilation, code signing, and release publishing. Each workflow has a distinct responsibility.
+
+## main.yml — Build and release
+
+`main.yml` is the primary workflow. It runs on a matrix of three operating systems and produces signed binaries for every supported platform.
+
+### Triggers
+
+```yaml
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/README.md"
+  pull_request:
+```
+
+The workflow fires on:
+- Any push to `main` (excluding README-only changes)
+- Pull requests (produces artifacts but does not publish releases)
+- Manual dispatch via the GitHub Actions UI
+
+### Build matrix
+
+```yaml
+strategy:
+  matrix:
+    os: [ ubuntu-20.04, macos-latest, windows-latest ]
+runs-on: ${{ matrix.os }}
+timeout-minutes: 360
+```
+
+All three runners execute the same steps. Platform-specific branching is handled inside the build step using `$RUNNER_OS`.
+
+### Build pipeline
+
+<Steps>
+  <Step title="Checkout OpenLens">
+    The OpenLens repository is checked out onto the runner.
+
+    ```yaml
+    - name: Checkout OpenLens
+      uses: actions/checkout@v3
+    ```
+  </Step>
+
+  <Step title="Read version file">
+    The `version` file is read and its contents exported as the `LENS_VERSION` environment variable for all subsequent steps.
+
+    ```yaml
+    - name: Export version to variable
+      run: echo "LENS_VERSION=$(cat version)" >> $GITHUB_ENV
+      shell: bash
+    ```
+  </Step>
+
+  <Step title="Set up Node.js">
+    Node.js 16.x is configured on the runner.
+
+    ```yaml
+    - uses: actions/setup-node@v3
+      with:
+        node-version: "16.x"
+    ```
+  </Step>
+
+  <Step title="Checkout upstream lensapp/lens">
+    The upstream `lensapp/lens` repository is cloned at exactly the tag `v$LENS_VERSION` into a `lens/` subdirectory. A shallow clone (`fetch-depth: 1`) is used to minimise download time.
+
+    ```yaml
+    - name: Checkout Upstream Lens
+      uses: actions/checkout@v3
+      with:
+        repository: lensapp/lens
+        path: lens
+        ref: v${{ env.LENS_VERSION }}
+        fetch-depth: 1
+    ```
+  </Step>
+
+  <Step title="Patch upstream Lens">
+    `node update.js` rewrites `lens/open-lens/package.json` to redirect the auto-updater, inject the build version, register the `beforeBuild` hook, and remove the upstream `postinstall` script.
+
+    ```yaml
+    - name: Patch Upstream Lens
+      run: node update.js
+    ```
+  </Step>
+
+  <Step title="Build binaries">
+    Dependencies are installed, then `nx run open-lens:build:app` is invoked with platform-specific flags. On Linux, the arm64 cross-compiler toolchain is installed first.
+
+    ```yaml
+    - name: Build Lens
+      run: |
+        npm run all:install
+        mkdir -p open-lens/node_modules
+
+        if [ "${CSC_LINK}" = "" ] || [ "${CSC_KEY_PASSWORD}" = "" ]; then
+          unset CSC_LINK
+          unset CSC_KEY_PASSWORD
+        fi
+
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          npx nx run open-lens:build:app --win nsis msi portable
+        elif [ "$RUNNER_OS" == "Linux" ]; then
+          sudo apt update
+          sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu -y
+
+          npx nx run open-lens:build:app --x64 --arm64
+          find . -name '*pty.node' -print0 | xargs -0 file
+        else
+          npx nx run open-lens:build:app --x64 --arm64
+          find . -name '*pty.node' -print0 | xargs -0 file
+        fi
+
+        rm -f open-lens/dist/*blockmap{,*}
+      shell: bash
+      working-directory: lens
+      env:
+        APPBUNDLEID: "io.kontena.lens-app"
+        APPLEID: ${{ secrets.APPLEID }}
+        APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+        CSC_LINK: ${{ runner.os == 'macos' && secrets.CSC_LINK || secrets.CSC_LINK_WIN }}
+        CSC_KEY_PASSWORD: ${{ runner.os == 'macos' && secrets.CSC_KEY_PASSWORD || secrets.CSC_KEY_PASSWORD_WIN }}
+        CSC_LINK_WIN: ${{ secrets.CSC_LINK_WIN }}
+        CSC_KEY_PASSWORD_WIN: ${{ secrets.CSC_KEY_PASSWORD_WIN }}
+        WIN_CSC_LINK: ${{ secrets.CSC_LINK_WIN }}
+        WIN_CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD_WIN }}
+        CSC_FOR_PULL_REQUEST: true
+        DOWNLOAD_ALL_ARCHITECTURES: ${{ runner.os != 'Windows' }}
+    ```
+
+    <Note>
+      If `CSC_LINK` or `CSC_KEY_PASSWORD` is empty (e.g., on a fork or pull request), both variables are unset so the build proceeds without code signing rather than failing.
+    </Note>
+  </Step>
+
+  <Step title="Calculate SHA256 checksums">
+    A `.sha256` file is generated for every `OpenLens*` artifact. On macOS/Linux, `shasum -a 256` is used; on Windows, `certutil -hashfile` is used as a fallback.
+
+    ```yaml
+    - name: Calculate SHA256 checksum
+      run: |-
+        if command -v shasum 2>/dev/null 1>&2; then
+          for filename in OpenLens*; do shasum -a 256 "${filename}" | tee "${filename}.sha256" ; done
+        else
+          for filename in OpenLens*; do certutil -hashfile "${filename}" SHA256 | tee "${filename}.sha256" ; done
+        fi
+      shell: bash
+      working-directory: lens/open-lens/dist
+    ```
+  </Step>
+
+  <Step title="Upload workflow artifacts (non-main branches)">
+    On pull requests and non-`main` branches, artifacts are uploaded with a 5-day retention period instead of being published as a GitHub Release.
+
+    ```yaml
+    - uses: actions/upload-artifact@v3
+      if: github.ref != 'refs/heads/main'
+      with:
+        name: OpenLens-${{ matrix.os }}
+        retention-days: 5
+        path: lens/open-lens/dist/OpenLens*${{ env.LENS_VERSION }}-${{ env.BUILD_ID }}*.*
+    ```
+  </Step>
+
+  <Step title="Generate changelog">
+    The release body is fetched from the upstream `lensapp/lens` latest release via the GitHub Releases API and written to a file.
+
+    ```yaml
+    - name: Generate Changelog
+      run: curl -s https://api.github.com/repos/lensapp/lens/releases/latest | jq -r 'select(.prerelease == false) | .body[0:]' > ${{ github.workspace }}-CHANGELOG.txt
+    ```
+  </Step>
+
+  <Step title="Publish versioned release (main branch only)">
+    A versioned GitHub Release is created with the tag `v{LENS_VERSION}-{BUILD_ID}` containing all platform binaries and their checksums.
+
+    ```yaml
+    - name: Release
+      uses: softprops/action-gh-release@v0.1.15
+      if: github.ref == 'refs/heads/main'
+      with:
+        tag_name: v${{ env.LENS_VERSION }}-${{ env.BUILD_ID }}
+        body_path: ${{ github.workspace }}-CHANGELOG.txt
+        files: lens/open-lens/dist/OpenLens*${{ env.LENS_VERSION }}-${{ env.BUILD_ID }}*.*
+    ```
+  </Step>
+
+  <Step title="Update the Latest tag (main branch only)">
+    The rolling `Latest` tag is updated to point to the same set of binaries. Installed OpenLens clients poll this tag for auto-updates.
+
+    ```yaml
+    - name: Latest
+      uses: softprops/action-gh-release@v0.1.15
+      if: github.ref == 'refs/heads/main'
+      with:
+        tag_name: Latest
+        files: |
+          lens/open-lens/dist/OpenLens*${{ env.LENS_VERSION }}-${{ env.BUILD_ID }}*.*
+    ```
+  </Step>
+</Steps>
+
+---
+
+## check.yml — Poll for new upstream versions
+
+`check.yml` runs on a schedule every 6 hours and automatically detects when a new stable release of `lensapp/lens` is available.
+
+```yaml
+name: Check latest Lens version
+
+on:
+  schedule:
+    - cron: '15 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  version_check:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PAT }}
+      - name: Get the latest version of Lens
+        run: |
+          curl -s https://api.github.com/repos/lensapp/lens/releases | jq -r '[.[] | select(.prerelease == false)][0] | .tag_name[1:]' > version
+          echo "LENS_VERSION=$(cat version)" >> $GITHUB_ENV
+      - name: Add & Commit
+        uses: EndBug/add-and-commit@v9.1.1
+        with:
+          message: 'Version updated to: ${{ env.LENS_VERSION }}'
+```
+
+The workflow:
+1. Fetches the full list of `lensapp/lens` releases via the GitHub API.
+2. Filters out pre-releases and selects the most recent stable release.
+3. Strips the leading `v` from the tag name with `[1:]` and writes the result to the `version` file.
+4. Commits and pushes the updated `version` file using `EndBug/add-and-commit`. This push to `main` then triggers `main.yml` to start a new build.
+
+A Personal Access Token (`PAT`) is required so the commit can trigger downstream workflows — the default `GITHUB_TOKEN` cannot trigger new workflow runs.
+
+---
+
+## clear.yml — Clean up the Latest release
+
+`clear.yml` runs before a new build publishes its artifacts to the `Latest` tag. It deletes all existing assets from the `Latest` release, ensuring stale binaries from a previous build do not remain alongside the new ones.
+
+```yaml
+name: Clear Latest
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**/README.md'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - name: Clean Latest
+        uses: mknejp/delete-release-assets@v1
+        with:
+          token: ${{ github.token }}
+          tag: Latest
+          fail-if-no-assets: false
+          fail-if-no-release: false
+          assets: |
+            *.*
+```
+
+It uses `mknejp/delete-release-assets` to remove all files matching `*.*` from the `Latest` release. Both `fail-if-no-assets` and `fail-if-no-release` are set to `false` so the step succeeds even when the `Latest` release does not yet exist (e.g., on the very first build).
+
+<Warning>
+  `clear.yml` and `main.yml` both trigger on pushes to `main`. There is no explicit ordering guarantee between them — the `Latest` release may briefly contain a mix of old and new assets during a build.
+</Warning>

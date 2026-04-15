@@ -1,0 +1,76 @@
+---
+title: "Troubleshooting Common OpenLens Installation Problems"
+description: "Fix common OpenLens problems: missing pod logs, extension toggle issues, and migration problems from the official Lens IDE to the open-source build."
+---
+
+This page covers the most frequently reported issues when running OpenLens. Before digging in, note that this repository only provides signed binaries — it does not modify application source code.
+
+<Note>
+MuhammedKalkan/OpenLens **only provides signed binaries** and does not alter Lens application source code. If you have a bug or feature request related to the Lens application itself, open an issue in the [lensapp/lens repository](https://github.com/lensapp/lens/issues), not this repo.
+</Note>
+
+<AccordionGroup>
+  <Accordion title="Pod logs not visible">
+    If pod log output is missing or the logs panel is blank, the most common cause is stale configuration files or extensions left behind by a previous Lens IDE installation.
+
+    **Fix:** Remove old config files and extensions from your previous Lens app installation, then restart OpenLens. Deleting or renaming the Lens configuration directory and relaunching OpenLens resolves the issue in most cases. You will need to re-add your kubeconfig connections after starting fresh.
+  </Accordion>
+
+  <Accordion title="Extension rapidly toggling enabled/disabled">
+    Starting with OpenLens 6.3.0, some extensions were removed from the default installation. The recommended replacement for node and pod management is `@alebcay/openlens-node-pod-menu`.
+
+    If you install this extension and it appears to rapidly flip between `enabled` and `disabled`:
+
+    1. Fully quit OpenLens (ensure the process is not running in the background)
+    2. Relaunch OpenLens
+    3. Navigate to **OpenLens menu → Extensions**
+    4. Manually enable `@alebcay/openlens-node-pod-menu`
+
+    The toggle loop is typically caused by a conflict with cached extension state from a previous session. A clean restart resolves it.
+
+    For the extension source, see the [npm package page](https://www.npmjs.com/package/@alebcay/openlens-node-pod-menu).
+  </Accordion>
+
+  <Accordion title="Auto-updater not working">
+    The built-in auto-updater is only available in binaries downloaded from the **Latest** release tag. If you installed OpenLens from an older versioned release, that binary may not have the auto-updater configuration pointing to the Latest endpoint.
+
+    **Fix:** Download a fresh binary from the Latest tag on the [releases page](https://github.com/MuhammedKalkan/OpenLens/releases) and reinstall. Once you are on a Latest-tagged build, the auto-updater will keep you current going forward.
+
+    See the [auto-updater guide](/guides/auto-updater) for a full explanation of how the update mechanism works.
+  </Accordion>
+
+  <Accordion title="Where to report Lens software bugs">
+    MuhammedKalkan/OpenLens is a **binary build repository only**. It compiles and signs the upstream `lensapp/lens` source but does not change any application code.
+
+    If you encounter a bug in the Lens application — a crash, a UI issue, a missing feature, or unexpected behavior — report it in the correct upstream repository:
+
+    - **Application bugs and features:** [lensapp/lens issues](https://github.com/lensapp/lens/issues)
+    - **Build or binary issues** (wrong platform, missing SHA256, code signing): open an issue in [MuhammedKalkan/OpenLens](https://github.com/MuhammedKalkan/OpenLens/issues)
+
+    Issues filed in the wrong repo are likely to be closed without action.
+  </Accordion>
+
+  <Accordion title="Migration from Lens IDE">
+    When migrating from the official Lens IDE (the commercial Mirantis distribution) to the open-source OpenLens build, leftover configuration and extensions from Lens IDE can cause unexpected behavior, including missing pod logs, broken extensions, or launch errors.
+
+    **Steps for a clean migration:**
+
+    1. Uninstall Lens IDE completely
+    2. Remove the Lens configuration directory (the location depends on your OS; check your system's application data folder for a `Lens` directory)
+    3. Download and install OpenLens from the [Latest release](https://github.com/MuhammedKalkan/OpenLens/releases)
+    4. Re-add your kubeconfig files from within OpenLens
+    5. Install any required extensions (e.g. `@alebcay/openlens-node-pod-menu`) from the Extensions page
+
+    Starting from a clean config avoids the majority of post-migration issues.
+  </Accordion>
+
+  <Accordion title="Old releases and archived builds">
+    All past and current OpenLens release artifacts are available on the [GitHub releases page](https://github.com/MuhammedKalkan/OpenLens/releases). Each versioned release includes:
+
+    - Platform-specific installers (`.dmg`, `.AppImage`, `.deb`, `.rpm`, `.exe`, `.msi`)
+    - SHA256 checksum files for verification
+    - A changelog pulled from the upstream lensapp/lens release
+
+    If you need to pin to a specific version for reproducibility, download directly from the versioned release tag rather than the rolling `Latest` tag. Note that binaries from versioned tags will not receive automatic updates.
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,53 @@
+---
+title: "OpenLens vs Lens IDE: Key Differences and When to Use Each"
+description: "OpenLens is the MIT-licensed open-source Lens build with no login required. Lens IDE is Mirantis's commercial distribution with a EULA and proprietary add-ons."
+---
+
+Both OpenLens and Lens IDE are built from the same upstream source — the [lensapp/lens](https://github.com/lensapp/lens) repository. The distinction is in how each is distributed: OpenLens provides community-signed binaries of the raw open-source code, while Lens IDE is a commercial product that layers proprietary features on top of the same codebase and requires a login.
+
+<Warning>
+Lens has closed its source code. No further updates from the OpenLens binary build repo (MuhammedKalkan/OpenLens) are expected. The information below reflects the state of the project at the time it was active.
+</Warning>
+
+## What is OpenLens?
+
+OpenLens refers to the [lensapp/lens](https://github.com/lensapp/lens) repository and the community binary builds produced from it. The [MuhammedKalkan/OpenLens](https://github.com/MuhammedKalkan/OpenLens) repo was created in response to [lensapp/lens#5444](https://github.com/lensapp/lens/issues/5444), which surfaced concerns about login requirements and proprietary additions creeping into the official distribution. This repo provides signed binaries compiled directly from the upstream MIT-licensed source — no modifications to application source code, no login required.
+
+## What is Lens IDE?
+
+[Lens IDE](https://k8slens.dev/) is the commercial distribution of the same upstream `lensapp/lens` codebase, published by Mirantis (Team Lens). It adds proprietary extensions, cloud features, and team collaboration tools not present in the open-source build. It is released under a traditional EULA and requires users to create a Lens account.
+
+## Side-by-side comparison
+
+| Feature | OpenLens | Lens IDE |
+|---|---|---|
+| Source | [lensapp/lens](https://github.com/lensapp/lens) (MIT) | [lensapp/lens](https://github.com/lensapp/lens) + closed-source additions |
+| License | MIT | EULA (proprietary) |
+| Login required | No | Yes |
+| Binaries | Community-signed (this repo) | Signed by Mirantis |
+| Proprietary extensions | No | Yes |
+| Enterprise/team features | No | Yes |
+| Cost | Free | Freemium / paid tiers |
+| Source availability | Fully open | Partially closed |
+
+## When to use OpenLens
+
+OpenLens is the right choice when you:
+
+- Work in an **air-gapped or restricted environment** where outbound authentication is not possible
+- Have **privacy or compliance requirements** that prohibit creating accounts with third-party services
+- Want a **no-login, no-telemetry** Kubernetes management tool
+- Prefer a build with a clear MIT license chain from source to binary
+
+## When to use Lens IDE
+
+Lens IDE is the better fit when you:
+
+- Need **enterprise features** like team workspaces, role sharing, or catalog integrations
+- Want **official support** from Mirantis
+- Require **automatic extension updates** managed through the Lens platform
+- Are already part of an organization using the Lens subscription model
+
+## Software issue reporting
+
+This repo (MuhammedKalkan/OpenLens) **only provides signed binaries** and does not alter application source code. For bugs or feature requests in the Lens application itself, open an issue in the [lensapp/lens repository](https://github.com/lensapp/lens/issues).

@@ -1,0 +1,128 @@
+---
+title: "How the OpenLens Binary Build and Release Pipeline Works"
+description: "OpenLens uses GitHub Actions to clone lensapp/lens, patch build config, compile signed binaries for all platforms, and publish GitHub Releases."
+---
+
+OpenLens is a binary build repository — it does not modify the upstream Lens source code. Instead, it clones the [lensapp/lens](https://github.com/lensapp/lens) repository at a specific tagged version, applies a small set of patches to the build configuration, compiles signed binaries for Linux, macOS, and Windows, and publishes those binaries as GitHub Releases.
+
+## How it works
+
+The build process has three main components working together:
+
+1. **`update.js`** — A Node.js patch script that rewrites `open-lens/package.json` in the cloned upstream repo before compilation begins.
+2. **`build-hooks/beforeBuild.js`** — An electron-builder pre-build hook that sets the correct cross-compiler toolchain when building for Linux targets.
+3. **GitHub Actions workflows** — Three workflows (`main.yml`, `check.yml`, `clear.yml`) that automate version polling, building, and release management.
+
+## Platforms and architectures
+
+Binaries are compiled on a matrix of three GitHub-hosted runners:
+
+| Runner | Targets |
+|---|---|
+| `ubuntu-20.04` | x64 and arm64 (`.deb`, `.rpm`, `.AppImage`) |
+| `macos-latest` | x64 and arm64 (`.dmg`) |
+| `windows-latest` | NSIS installer, MSI, and portable `.exe` |
+
+Linux arm64 cross-compilation is handled by installing `gcc-aarch64-linux-gnu` and `g++-aarch64-linux-gnu` and setting `CC`/`CXX` via the `beforeBuild.js` hook.
+
+## Code signing
+
+Signing credentials are stored as GitHub Actions secrets and injected at build time:
+
+| Secret | Platform | Purpose |
+|---|---|---|
+| `CSC_LINK` | macOS | Base64-encoded `.p12` certificate |
+| `CSC_KEY_PASSWORD` | macOS | Password for the `.p12` certificate |
+| `APPLEID` | macOS | Apple ID for notarization |
+| `APPLEIDPASS` | macOS | App-specific password for notarization |
+| `CSC_LINK_WIN` | Windows | Base64-encoded Windows code signing certificate |
+| `CSC_KEY_PASSWORD_WIN` | Windows | Password for the Windows certificate |
+
+If either `CSC_LINK` or `CSC_KEY_PASSWORD` is absent, the build step unsets both and produces unsigned binaries. This allows pull request builds to proceed without access to signing secrets.
+
+## The `update.js` patch script
+
+Before the build runs, `node update.js` is executed from the root of the OpenLens repo. It reads the upstream `open-lens/package.json`, applies several patches, and writes it back:
+
+```js
+const fs = require('fs');
+
+const packageJsonOpenLens = require('./lens/open-lens/package.json');
+
+packageJsonOpenLens.build.publish = [{
+    url: "https://github.com/MuhammedKalkan/OpenLens/releases/download/Latest",
+    provider: "generic"
+}];
+
+packageJsonOpenLens.version = `${packageJsonOpenLens.version}-${process.env.BUILD_ID}`;
+packageJsonOpenLens.build.npmRebuild = true;
+packageJsonOpenLens.build.detectUpdateChannel = false;
+packageJsonOpenLens.build.beforeBuild = '../../build-hooks/beforeBuild';
+
+delete packageJsonOpenLens.scripts.postinstall;
+
+packageJsonOpenLens.copyright = [
+    packageJsonOpenLens.copyright,
+    '',
+    'Binary application builds @ MuhammedKalkan/OpenLens',
+    'by Muhammed Kalkan, Jan-Otto Kröpke, Ebby Peter, Xaver Lohmüller'
+].join("\r\n")
+
+console.log(`Set build version: ${packageJsonOpenLens.version}`)
+
+fs.writeFileSync('./lens/open-lens/package.json', JSON.stringify(packageJsonOpenLens, null, 2));
+```
+
+What each section does:
+
+- **`build.publish`** — Points the electron auto-updater at the `Latest` release tag on this repository instead of the upstream Lens release channel.
+- **`version`** — Appends the GitHub Actions run number (`BUILD_ID`) to the upstream version string, producing a unique build identifier like `6.5.2-300751`.
+- **`build.npmRebuild`** — Ensures native modules are rebuilt for the target Electron version.
+- **`build.detectUpdateChannel`** — Disabled to prevent electron-builder from inferring a channel suffix from the version string.
+- **`build.beforeBuild`** — Registers `../../build-hooks/beforeBuild` as the pre-build hook so cross-compilation toolchains are set correctly on Linux.
+- **`delete postinstall`** — Removes the upstream `postinstall` script to avoid unwanted side effects during the build.
+- **`copyright`** — Appends attribution for the binary build contributors.
+
+## The `beforeBuild.js` cross-compilation hook
+
+`build-hooks/beforeBuild.js` is an electron-builder hook invoked before native modules are compiled. It only acts on Linux builds and sets `CC`/`CXX` to the appropriate cross-compilation toolchain based on the target architecture:
+
+```js
+const archMap = {
+    "amd64": "x86_64",
+    "arm64": "aarch64",
+}
+
+module.exports = async (buildContext) => {
+    if (buildContext.platform.name !== "linux") return true
+
+    if (buildContext.arch in archMap) {
+        process.env.CC = `${archMap[buildContext.arch]}-linux-gnu-gcc`
+        process.env.CXX = `${archMap[buildContext.arch]}-linux-gnu-g++`
+    } else {
+        process.env.CC = "gcc"
+        process.env.CXX = "g++"
+    }
+    return true
+}
+```
+
+When building for `amd64`, the compiler is set to `x86_64-linux-gnu-gcc`. For `arm64`, it becomes `aarch64-linux-gnu-gcc`. For any other architecture, the default system `gcc` is used. On macOS and Windows this hook returns `true` immediately without modifying the environment.
+
+## Release artifacts
+
+Every successful build on the `main` branch produces two GitHub Releases:
+
+- **Versioned release** — Tagged `v{LENS_VERSION}-{BUILD_ID}` (e.g., `v2024.1.300751-latest-42`). Contains all platform binaries and one `.sha256` checksum file per binary.
+- **`Latest` tag** — A rolling release always updated to the newest build. The auto-updater in installed OpenLens binaries polls this tag.
+
+On non-`main` branches (pull requests), artifacts are uploaded as workflow artifacts with a 5-day retention period instead of being published as releases.
+
+<CardGroup cols={2}>
+  <Card title="GitHub Actions workflows" icon="code-branch" href="/build/workflows">
+    Step-by-step breakdown of main.yml, check.yml, and clear.yml.
+  </Card>
+  <Card title="Version tracking" icon="tag" href="/build/versioning">
+    How version numbers are formed and how releases are named.
+  </Card>
+</CardGroup>

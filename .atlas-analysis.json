@@ -1,0 +1,66 @@
+{
+  "projectType": "infrastructure",
+  "projectName": "OpenLens",
+  "projectDescription": "A community-maintained binary build repository that compiles and distributes signed, login-free builds of the open-source Lens Kubernetes IDE across macOS, Linux, and Windows.",
+  "theme": "aspen",
+  "primaryColor": "#241c24",
+  "lightColor": "#f4f4f4",
+  "darkColor": "#cb0404",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "extensions"
+            ]
+          },
+          {
+            "group": "Build System",
+            "pages": [
+              "build/overview",
+              "build/workflows",
+              "build/versioning"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/openlens-vs-lens",
+              "guides/auto-updater",
+              "guides/troubleshooting"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/overview",
+              "contributing/build-locally"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Pre-built signed binaries for macOS, Linux, and Windows",
+    "No login required — open-source only build",
+    "Automated version tracking from upstream lensapp/lens",
+    "Cross-platform CI/CD via GitHub Actions",
+    "Built-in auto-updater starting from v6.x",
+    "Support for community extensions (e.g., node pod menu)",
+    "Multiple install methods: Homebrew, Scoop, Winget, Chocolatey, direct download"
+  ],
+  "publicApiSurface": [
+    "GitHub Releases — versioned binary downloads",
+    "Latest tag — always points to most recent signed build",
+    "SHA256 checksums for all release assets",
+    "update.js — patches upstream package.json for build customization",
+    "build-hooks/beforeBuild.js — cross-compilation compiler selection hook",
+    "GitHub Actions: main.yml (build + release), check.yml (version polling), clear.yml (cleanup)"
+  ]
+}

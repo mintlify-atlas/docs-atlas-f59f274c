@@ -1,0 +1,44 @@
+---
+title: "OpenLens: Community-Built Kubernetes IDE Without Login"
+description: "OpenLens distributes community-built, signed binaries of the Lens Kubernetes IDE. No login required — open-source MIT-licensed builds only."
+---
+
+OpenLens is a community-maintained binary build repository that compiles and distributes signed builds of the [Lens Kubernetes IDE](https://github.com/lensapp/lens). It does not modify the upstream source code — it exists solely to produce signed, login-free binaries from the open-source components of Lens.
+
+<Warning>
+  Lens has closed its source code. No further OpenLens updates are expected. The existing releases remain available for use, but no new builds will be published.
+</Warning>
+
+## Why OpenLens exists
+
+The official Lens IDE distribution began requiring a login and bundling proprietary components. Issue [lensapp/lens#5444](https://github.com/lensapp/lens/issues/5444) captured the community's concern and drove the creation of this build repository as a login-free alternative. OpenLens builds only from the open-source portion of the upstream repository, which is licensed under the [MIT license](https://github.com/lensapp/lens/blob/master/LICENSE).
+
+## Relationship to upstream Lens
+
+The [lensapp/lens repository](https://github.com/lensapp/lens) is where Team Lens (Mirantis) develops the Lens IDE together with the community. Its source code is available under the MIT license. The commercial Lens IDE is a separate distribution of that same codebase, released under a traditional EULA and bundled with proprietary customizations.
+
+OpenLens builds directly from the MIT-licensed upstream source — no proprietary additions, no login requirement.
+
+## Key features
+
+- **Signed binaries** — macOS, Linux, and Windows builds are code-signed for each release.
+- **No login required** — installs and runs without a Lens account.
+- **Auto-updater** — binaries downloaded with the `Latest` tag include the auto-updater.
+- **Extension support** — the Lens extension API is fully available, allowing community extensions to restore any removed functionality.
+
+## Explore OpenLens
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install OpenLens on macOS, Linux, or Windows using Homebrew, Scoop, Winget, Chocolatey, or manual download.
+  </Card>
+  <Card title="Extensions" icon="puzzle-piece" href="/extensions">
+    Restore missing node and pod log menus with the community extension for OpenLens 6.3.0 and later.
+  </Card>
+  <Card title="OpenLens vs Lens IDE" icon="scale-balanced" href="/guides/openlens-vs-lens">
+    Understand the difference between the open-source build and the official Lens IDE distribution.
+  </Card>
+  <Card title="Build system" icon="gear" href="/build/overview">
+    Learn how the CI/CD pipeline compiles, signs, and publishes binaries automatically.
+  </Card>
+</CardGroup>

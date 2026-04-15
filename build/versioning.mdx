@@ -1,0 +1,122 @@
+---
+title: "OpenLens Version Format, Tracking, and Release Naming"
+description: "OpenLens tracks upstream lensapp/lens releases automatically. Build IDs append the GitHub run number, and the Latest tag always points to the newest build."
+---
+
+OpenLens versions are derived directly from the upstream `lensapp/lens` release tags. The OpenLens build process appends a build identifier to the upstream version so every artifact is uniquely traceable to a specific GitHub Actions run.
+
+## Version format
+
+Every OpenLens binary is versioned as:
+
+```
+LENS_VERSION-BUILD_ID
+```
+
+- **`LENS_VERSION`** is the upstream `lensapp/lens` version, read from the `version` file in the repository root (with the leading `v` stripped).
+- **`BUILD_ID`** is the GitHub Actions run number (`github.run_number`), injected at build time via the `BUILD_ID` environment variable.
+
+For example, the `version` file currently contains `2024.1.300751-latest`, which means artifacts are versioned `2024.1.300751-latest-{BUILD_ID}`.
+
+This suffix is applied by `update.js` before compilation:
+
+```js
+packageJsonOpenLens.version = `${packageJsonOpenLens.version}-${process.env.BUILD_ID}`;
+```
+
+## The `version` file
+
+The repository contains a single `version` file that holds the current upstream Lens version to build against. Its current contents are:
+
+```
+2024.1.300751-latest
+```
+
+<Note>
+  This file is the single source of truth for which upstream Lens tag the build checks out. The `main.yml` workflow reads it with `cat version` and exports the result as `LENS_VERSION`.
+</Note>
+
+## Automatic version updates via check.yml
+
+The `check.yml` workflow runs on a cron schedule (`15 */6 * * *`) — every 6 hours — and polls the `lensapp/lens` GitHub Releases API to detect new stable releases.
+
+The query that determines the version:
+
+```bash
+curl -s https://api.github.com/repos/lensapp/lens/releases \
+  | jq -r '[.[] | select(.prerelease == false)][0] | .tag_name[1:]' > version
+```
+
+The `jq` expression does the following:
+1. **`[.[] | select(.prerelease == false)]`** — Collects all releases that are not pre-releases.
+2. **`[0]`** — Takes the first (most recent) entry from the filtered list.
+3. **`.tag_name[1:]`** — Reads the `tag_name` field (e.g., `v6.5.2`) and strips the leading `v`, writing `6.5.2` to the `version` file.
+
+When the version file changes, the workflow auto-commits:
+
+```
+Version updated to: 6.5.2
+```
+
+That commit push to `main` triggers `main.yml` to build and publish a new release.
+
+## Finding releases
+
+Releases are published under two tags:
+
+| Tag | Format | Purpose |
+|---|---|---|
+| Versioned | `v{LENS_VERSION}-{BUILD_ID}` | Permanent record for a specific build, e.g., `v2024.1.300751-latest-42` |
+| `Latest` | `Latest` | Rolling pointer always updated to the most recent successful build |
+
+Installed OpenLens clients use the `Latest` tag for auto-updates. The auto-updater endpoint is configured in `update.js`:
+
+```js
+packageJsonOpenLens.build.publish = [{
+    url: "https://github.com/MuhammedKalkan/OpenLens/releases/download/Latest",
+    provider: "generic"
+}];
+```
+
+## Changelog generation
+
+Each versioned release includes a changelog body fetched from the upstream `lensapp/lens` latest release:
+
+```bash
+curl -s https://api.github.com/repos/lensapp/lens/releases/latest \
+  | jq -r 'select(.prerelease == false) | .body[0:]'
+```
+
+This pulls the full release notes from the most recent non-pre-release upstream Lens release and uses them as the GitHub Release body for the corresponding OpenLens release.
+
+## SHA256 checksums
+
+Every binary artifact in a release has a companion `.sha256` file generated during the build:
+
+```bash
+# macOS / Linux
+for filename in OpenLens*; do shasum -a 256 "${filename}" | tee "${filename}.sha256" ; done
+
+# Windows (fallback)
+for filename in OpenLens*; do certutil -hashfile "${filename}" SHA256 | tee "${filename}.sha256" ; done
+```
+
+The `.sha256` files are uploaded alongside the binaries in both the versioned release and the `Latest` tag.
+
+## Artifact naming pattern
+
+All build artifacts — binaries and checksum files — follow this glob pattern:
+
+```
+OpenLens*{LENS_VERSION}-{BUILD_ID}*.*
+```
+
+This pattern is used in both the artifact upload step (for pull request builds) and the release file globs:
+
+```yaml
+path: lens/open-lens/dist/OpenLens*${{ env.LENS_VERSION }}-${{ env.BUILD_ID }}*.*
+```
+
+<Tip>
+  To verify a downloaded binary, download both the binary file and its matching `.sha256` file from the same release, then run `shasum -a 256 -c OpenLens-VERSION.dmg.sha256` (macOS/Linux) or check the hash manually on Windows using `certutil -hashfile OpenLens-VERSION.exe SHA256`.
+</Tip>

@@ -1,0 +1,38 @@
+---
+title: "Install OpenLens Extensions to Restore Removed Features"
+description: "Starting with OpenLens 6.3.0, some features moved to extensions. Install @alebcay/openlens-node-pod-menu to restore node and pod log menus."
+---
+
+Starting with OpenLens 6.3.0, some built-in features were removed from the Lens source and made available as separate extensions. The most commonly needed extension restores the node and pod context menus, including pod log access.
+
+<Note>
+  Extensions are separate from the core OpenLens binary because they were removed from the upstream lensapp/lens source code. The OpenLens build repo only packages what is present in the MIT-licensed upstream — it does not add or restore features independently.
+</Note>
+
+## Install the node and pod menu extension
+
+The `@alebcay/openlens-node-pod-menu` extension restores the node and pod context menus that were removed in v6.3.0.
+
+<Steps>
+  <Step title="Open the Extensions page">
+    In OpenLens, open the **OpenLens** menu and navigate to **Extensions**.
+  </Step>
+  <Step title="Enter the extension name">
+    Type the following into the extension input field and press **Install**:
+
+    ```
+    @alebcay/openlens-node-pod-menu
+    ```
+  </Step>
+  <Step title="Confirm the extension is enabled">
+    The extension should appear in the list with a status of **enabled**. You can now access node and pod log menus from the cluster view.
+  </Step>
+</Steps>
+
+The extension package is published on npm. You can review its source and changelog at [https://www.npmjs.com/package/@alebcay/openlens-node-pod-menu](https://www.npmjs.com/package/@alebcay/openlens-node-pod-menu).
+
+## Troubleshooting
+
+**Extension rapidly toggles between enabled and disabled**
+
+If the extension status flickers between `enabled` and `disabled` after installation, restart OpenLens and manually enable the extension from the Extensions page.

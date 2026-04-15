@@ -1,97 +1,39 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "OpenLens: Free Signed Kubernetes IDE for All Platforms"
+description: "OpenLens provides free, signed, login-free binaries of the Lens Kubernetes IDE for macOS, Linux, and Windows — built from the open-source upstream."
 ---
 
-## Setting up
+OpenLens is a community-maintained binary build repository that compiles and distributes signed, open-source builds of the [Lens Kubernetes IDE](https://github.com/lensapp/lens). Unlike the official Lens IDE distribution, OpenLens requires no login and includes only the open-source components licensed under MIT.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Download and install OpenLens on macOS, Linux, or Windows using your preferred package manager.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Extensions" icon="puzzle-piece" href="/extensions">
+    Restore missing functionality like node/pod menus with community extensions.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="OpenLens vs Lens IDE" icon="scale-balanced" href="/guides/openlens-vs-lens">
+    Understand the difference between the open-source build and the commercial Lens IDE.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Build System" icon="gear" href="/build/overview">
+    Learn how the CI/CD pipeline compiles, signs, and releases binaries automatically.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Get started in minutes
 
-Everything you need to create world-class documentation.
+<Steps>
+  <Step title="Download OpenLens">
+    Go to the [Releases page](https://github.com/MuhammedKalkan/OpenLens/releases) or use a package manager like Homebrew, Scoop, Winget, or Chocolatey to install OpenLens on your system.
+  </Step>
+  <Step title="Connect your cluster">
+    Open OpenLens and add your kubeconfig. OpenLens reads `~/.kube/config` by default, or you can import a custom kubeconfig file through the UI.
+  </Step>
+  <Step title="Install extensions (optional)">
+    Starting with v6.3.0, some features like the node/pod menu are available as separate extensions. Install `@alebcay/openlens-node-pod-menu` from the Extensions page.
+  </Step>
+</Steps>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Note>
+  Lens has closed its source code. No further OpenLens updates are expected. Use the existing releases for your Kubernetes management needs.
+</Note>

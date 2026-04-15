@@ -1,0 +1,88 @@
+---
+title: "Download and Install OpenLens on macOS, Linux, Windows"
+description: "Step-by-step instructions to install OpenLens using Homebrew, Scoop, Winget, Chocolatey, or manual binary download on any supported platform."
+---
+
+OpenLens provides signed binaries for macOS, Linux, and Windows. You can install using a package manager or download the binary directly from the Releases page. All release assets include SHA256 checksums for verification.
+
+<Tabs>
+  <Tab title="macOS">
+    The recommended way to install OpenLens on macOS is Homebrew. You can also download the binary manually.
+
+    <CodeGroup>
+
+    ```bash Homebrew
+    brew install --cask openlens
+    ```
+
+    </CodeGroup>
+
+    For a manual install, download the `.dmg` file for your architecture from the [Releases page](https://github.com/MuhammedKalkan/OpenLens/releases).
+  </Tab>
+
+  <Tab title="Linux">
+    Download the package that matches your distribution and architecture from the [Releases page](https://github.com/MuhammedKalkan/OpenLens/releases), then install it with your system package manager.
+
+    | Format | Use with |
+    |---|---|
+    | `.deb` | Debian, Ubuntu, and derivatives |
+    | `.rpm` | Fedora, RHEL, openSUSE, and derivatives |
+    | `.AppImage` | Any Linux distribution |
+
+    Download the appropriate file and install based on your available package manager.
+  </Tab>
+
+  <Tab title="Windows">
+    OpenLens supports three package managers on Windows, plus manual download.
+
+    <CodeGroup>
+
+    ```bash Scoop
+    scoop bucket add extras
+    scoop install openlens
+    ```
+
+    ```bash Winget
+    winget install openlens
+    ```
+
+    ```bash Chocolatey (stable)
+    choco install -y openlens
+    ```
+
+    ```bash Chocolatey (pre-release)
+    choco install -y openlens --pre
+    ```
+
+    </CodeGroup>
+
+    Use the Chocolatey `--pre` flag to install alpha or beta builds.
+  </Tab>
+</Tabs>
+
+## Manual download
+
+Go to the [OpenLens Releases page](https://github.com/MuhammedKalkan/OpenLens/releases) and download the binary for your operating system and architecture. Each release asset has a corresponding `.sha256` file you can use to verify the download.
+
+<Steps>
+  <Step title="Open the Releases page">
+    Navigate to [https://github.com/MuhammedKalkan/OpenLens/releases](https://github.com/MuhammedKalkan/OpenLens/releases).
+  </Step>
+  <Step title="Download the binary">
+    Select the asset that matches your platform and architecture (e.g., `.dmg` for macOS, `.exe` / `.msi` for Windows, `.deb` / `.rpm` / `.AppImage` for Linux).
+  </Step>
+  <Step title="Verify the checksum">
+    Download the matching `.sha256` file and verify the hash against your downloaded binary.
+  </Step>
+  <Step title="Install the binary">
+    Run the installer or mount the disk image as you would any other application on your platform.
+  </Step>
+</Steps>
+
+## Version and auto-updater
+
+The current release series is `2024.1.x`. Binaries downloaded with the `Latest` tag include the auto-updater, which keeps OpenLens current without requiring manual reinstallation.
+
+<Tip>
+  If pod logs are not visible after migrating from the Lens IDE, remove old config files and extensions left over from the previous Lens installation and restart OpenLens.
+</Tip>

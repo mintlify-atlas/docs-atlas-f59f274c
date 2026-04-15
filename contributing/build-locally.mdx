@@ -1,0 +1,191 @@
+---
+title: "Reproduce the OpenLens CI Build on Your Local Machine"
+description: "Replicate the OpenLens CI build locally: clone both repos, run update.js to patch, then use nx to compile platform-specific binaries with optional code signing."
+---
+
+The CI pipeline that produces official OpenLens releases runs on GitHub-hosted Ubuntu, macOS, and Windows runners. You can reproduce the same steps locally to test build-pipeline changes, verify patches, or produce unsigned binaries for development use. The steps below mirror `github/workflows/main.yml` exactly.
+
+<Warning>
+  The CI uses **Node.js 16.x** via `actions/setup-node`. Using a different Node.js major version may cause dependency installation or compilation failures. Pin your local Node version to 16.x before proceeding.
+</Warning>
+
+## Prerequisites
+
+You need Git and Node.js 16.x on all platforms, plus a small set of platform-specific tools.
+
+<Tabs>
+  <Tab title="Linux">
+    Install GCC/G++ and the AArch64 cross-compiler toolchain. The cross-compiler is required to produce ARM64 binaries from an x86\_64 host — the same `apt` command the CI runs before building:
+
+    ```bash
+    sudo apt update
+    sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu -y
+    ```
+
+    The `build-hooks/beforeBuild.js` hook reads the target architecture from electron-builder and sets `CC` and `CXX` automatically:
+
+    - `amd64` → `x86_64-linux-gnu-gcc` / `x86_64-linux-gnu-g++`
+    - `arm64` → `aarch64-linux-gnu-gcc` / `aarch64-linux-gnu-g++`
+  </Tab>
+  <Tab title="macOS">
+    Install the Xcode command line tools:
+
+    ```bash
+    xcode-select --install
+    ```
+
+    Code signing is optional for local builds. To sign, you need a valid Developer ID Application certificate exported as a `.p12` file. See the [environment variables](#environment-variables-for-code-signing) section below.
+  </Tab>
+  <Tab title="Windows">
+    - Install [NSIS](https://nsis.sourceforge.io/Download) — required to produce the `.exe` installer target.
+    - Code signing is optional. To sign, you need a `.p12` certificate. See the [environment variables](#environment-variables-for-code-signing) section below.
+  </Tab>
+</Tabs>
+
+## Build steps
+
+<Steps>
+  <Step title="Clone this repository">
+    ```bash
+    git clone https://github.com/MuhammedKalkan/OpenLens.git
+    cd OpenLens
+    ```
+  </Step>
+
+  <Step title="Read the pinned Lens version">
+    The `version` file contains the upstream Lens tag to build against:
+
+    ```bash
+    LENS_VERSION=$(cat version)
+    echo "Building Lens $LENS_VERSION"
+    ```
+  </Step>
+
+  <Step title="Clone upstream Lens at that version">
+    Check out only the tagged commit (shallow clone) to keep the download small:
+
+    ```bash
+    git clone --depth 1 --branch v$LENS_VERSION https://github.com/lensapp/lens.git lens
+    ```
+  </Step>
+
+  <Step title="Patch the upstream package.json">
+    `update.js` rewrites `lens/open-lens/package.json` to configure the publish URL, append a build ID to the version string, enable `npmRebuild`, disable `detectUpdateChannel`, remove the `postinstall` script, and register the `beforeBuild` hook:
+
+    ```bash
+    node update.js
+    ```
+
+    You can set a custom build identifier via the `BUILD_ID` environment variable (the CI uses the GitHub run number):
+
+    ```bash
+    BUILD_ID=local node update.js
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    Run the monorepo install from inside the cloned `lens` directory:
+
+    ```bash
+    cd lens
+    npm run all:install
+    ```
+  </Step>
+
+  <Step title="Avoid electron-builder's npm reinstall">
+    Create the `open-lens/node_modules` directory before building. This prevents electron-builder from triggering a redundant `npm install` step during packaging:
+
+    ```bash
+    mkdir -p open-lens/node_modules
+    ```
+
+    This mirrors a comment in `main.yml`:
+    ```yaml
+    # Avoid npm install from electron-builder
+    # ref: https://github.com/electron-userland/electron-builder/blob/80a3ae857b9305aff1774e1b2b932601af50231b/packages/app-builder-lib/src/util/yarn.ts#L11-L16
+    mkdir -p open-lens/node_modules
+    ```
+  </Step>
+
+  <Step title="Build for your platform">
+    Run the nx build target from inside the `lens` directory:
+
+    <Tabs>
+      <Tab title="Linux">
+        Builds x64 and ARM64 binaries:
+
+        ```bash
+        npx nx run open-lens:build:app --x64 --arm64
+        ```
+      </Tab>
+      <Tab title="macOS">
+        Builds x64 and ARM64 (Apple Silicon) binaries:
+
+        ```bash
+        npx nx run open-lens:build:app --x64 --arm64
+        ```
+      </Tab>
+      <Tab title="Windows">
+        Builds NSIS installer, MSI, and portable executable:
+
+        ```bash
+        npx nx run open-lens:build:app --win nsis msi portable
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Find your artifacts">
+    Built binaries are written to:
+
+    ```
+    lens/open-lens/dist/
+    ```
+
+    The CI also removes blockmap files after building:
+
+    ```bash
+    rm -f open-lens/dist/*blockmap{,*}
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  Building without signing certificates produces unsigned binaries. This is perfectly fine for local development and testing — you can install and run them on your own machine without any code-signing infrastructure.
+</Tip>
+
+## Environment variables for code signing
+
+All signing variables are optional. When `CSC_LINK` or `CSC_KEY_PASSWORD` are empty the CI explicitly unsets them so electron-builder skips signing:
+
+```bash
+if [ "${CSC_LINK}" = "" ] || [ "${CSC_KEY_PASSWORD}" = "" ]; then
+  unset CSC_LINK
+  unset CSC_KEY_PASSWORD
+fi
+```
+
+### macOS signing
+
+| Variable | Description |
+|---|---|
+| `CSC_LINK` | Base64-encoded `.p12` certificate or file path |
+| `CSC_KEY_PASSWORD` | Password for the `.p12` certificate |
+| `APPLEID` | Apple ID email used for notarization |
+| `APPLEIDPASS` | App-specific password for the Apple ID |
+| `APPBUNDLEID` | Bundle identifier (CI uses `io.kontena.lens-app`) |
+
+### Windows signing
+
+| Variable | Description |
+|---|---|
+| `CSC_LINK_WIN` / `WIN_CSC_LINK` | Base64-encoded `.p12` certificate or file path |
+| `CSC_KEY_PASSWORD_WIN` / `WIN_CSC_KEY_PASSWORD` | Password for the `.p12` certificate |
+
+### Signing pull request builds
+
+Set `CSC_FOR_PULL_REQUEST=true` to allow electron-builder to sign binaries produced from a pull request branch (signing is disabled by default for PRs):
+
+```bash
+export CSC_FOR_PULL_REQUEST=true
+```

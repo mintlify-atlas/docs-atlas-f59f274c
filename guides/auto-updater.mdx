@@ -1,0 +1,59 @@
+---
+title: "How the OpenLens Binary Auto-Updater Works and Is Configured"
+description: "OpenLens binaries from the Latest release tag include a built-in auto-updater. New builds are published automatically to the GitHub releases Latest endpoint."
+---
+
+OpenLens binaries include a built-in auto-updater that silently checks for new releases and prompts you to install them. The auto-updater is available in every binary distributed under the `Latest` release tag on the [MuhammedKalkan/OpenLens releases page](https://github.com/MuhammedKalkan/OpenLens/releases).
+
+<Note>
+Auto-update only works if you downloaded your binary from the **Latest** release tag. Binaries downloaded from an older versioned release (e.g. `v6.5.0-366`) do not include the updated auto-updater configuration and will not receive automatic updates. Download from the Latest tag to enable this feature.
+</Note>
+
+## How the auto-updater works
+
+When a new build is published, the CI pipeline pushes the artifacts to two places: a versioned release tag (e.g. `v2024.1.300751-latest-42`) and the rolling `Latest` tag. The auto-updater built into the `Latest` binary checks the configured URL on startup and compares the current version against what is available.
+
+The update check URL and provider are injected into the upstream `open-lens/package.json` during the build by `update.js`, which runs before the electron-builder step. This means the auto-updater configuration is baked into the binary at build time.
+
+## Build configuration
+
+The `update.js` patch script sets the following `publish` configuration in `open-lens/package.json` before the binary is compiled:
+
+```js
+packageJsonOpenLens.build.publish = [{
+    url: "https://github.com/MuhammedKalkan/OpenLens/releases/download/Latest",
+    provider: "generic"
+}];
+
+packageJsonOpenLens.build.detectUpdateChannel = false;
+```
+
+Key fields explained:
+
+- **`url`** — The endpoint electron-updater polls for new release assets. This points to the `Latest` tag on the MuhammedKalkan/OpenLens releases page.
+- **`provider: "generic"`** — Tells electron-builder to use a plain HTTP/HTTPS server (or a GitHub releases download URL in this case) rather than a platform-specific update service like Squirrel or the Mac App Store.
+- **`detectUpdateChannel: false`** — Disables automatic detection of the update channel from the version string suffix. Without this, electron-updater might infer a pre-release channel from version strings and skip stable updates.
+
+## How the Latest tag stays current
+
+Every successful push to the `main` branch triggers the CI pipeline (`github/workflows/main.yml`). After building binaries for Linux, macOS, and Windows, the pipeline publishes release assets to both a versioned tag and the `Latest` tag:
+
+```yaml
+- name: Latest
+  uses: softprops/action-gh-release@v0.1.15
+  if: github.ref == 'refs/heads/main'
+  with:
+    tag_name: Latest
+    files: |
+      lens/open-lens/dist/OpenLens*${{ env.LENS_VERSION }}-${{ env.BUILD_ID }}*.*
+```
+
+The `Latest` tag is continuously overwritten with the newest artifacts, so the auto-updater URL always resolves to the most recently built release.
+
+## Manual update fallback
+
+If the auto-updater does not trigger, or if you are running an older versioned binary, you can always download the latest release manually:
+
+1. Visit [https://github.com/MuhammedKalkan/OpenLens/releases](https://github.com/MuhammedKalkan/OpenLens/releases)
+2. Download the asset matching your platform from the **Latest** tag
+3. Install over your existing installation

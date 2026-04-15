@@ -1,0 +1,69 @@
+---
+title: "How to Contribute to the OpenLens Binary Build Repo"
+description: "OpenLens accepts contributions for the build pipeline, signing process, and binary distribution. Learn how the project is structured and where to contribute."
+---
+
+This repository exists solely to produce signed, open-source binaries of the Lens IDE. It does not modify or fork the Lens application code itself — all IDE logic lives upstream. Contributions here focus on the automation and tooling that turns upstream source into distributable binaries.
+
+<Note>
+  **Scope boundary:** This repo only provides signed binaries and does not alter
+  the Lens source code. If you have a bug report or feature request for the Lens
+  IDE itself, open an issue in the [lensapp/lens
+  repository](https://github.com/lensapp/lens/issues) instead.
+</Note>
+
+## What contributions are welcome
+
+The following areas are in scope for contributions to this repository:
+
+- **Build pipeline improvements** — changes to `update.js`, `build-hooks/`, or the overall build flow
+- **CI workflow fixes** — updates to `.github/workflows/main.yml` for reliability, runner versions, or new platforms
+- **Cross-platform signing** — improvements to how macOS and Windows code-signing certificates are handled
+- **Documentation** — corrections or additions to any page in this docs site
+
+Contributions that change Lens IDE behavior, add features to the application, or modify `lensapp/lens` source are out of scope for this repository.
+
+## Project structure
+
+The repository is intentionally small. Each file plays a specific role in the build pipeline:
+
+| File / directory | Purpose |
+|---|---|
+| `version` | Tracks the upstream Lens version to build. The CI reads this file to check out the matching `lensapp/lens` tag. |
+| `update.js` | Patches `lens/open-lens/package.json` before compilation: sets the publish URL, appends the build ID to the version string, enables `npmRebuild`, disables `detectUpdateChannel`, removes the `postinstall` script, and registers `build-hooks/beforeBuild` as the electron-builder hook. |
+| `build-hooks/beforeBuild.js` | An electron-builder `beforeBuild` hook. On Linux it selects the correct cross-compiler (`gcc`/`g++`) based on the target architecture, mapping `amd64` → `x86_64-linux-gnu` and `arm64` → `aarch64-linux-gnu`. On other platforms it returns without modification. |
+| `.github/workflows/` | CI/CD automation. `main.yml` runs on Ubuntu, macOS, and Windows, clones upstream Lens at the pinned version, patches it, builds platform binaries, and publishes a GitHub Release on pushes to `main`. |
+
+## Contributors
+
+The copyright notice written into every binary build acknowledges the people who made signed distribution possible:
+
+- **Muhammed Kalkan** — project maintainer
+- **Jan-Otto Kröpke** — build pipeline contributor
+- **Ebby Peter** — code-signing contributor
+- **Xaver Lohmüller** — code-signing contributor
+
+## Funding
+
+This project accepts community funding through Patreon. Support helps cover the cost of signing certificates and runner time used to produce signed binaries for every platform.
+
+Patreon: [patreon.com/openlens](https://www.patreon.com/openlens)
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card
+    title="Build locally"
+    icon="hammer"
+    href="/contributing/build-locally"
+  >
+    Replicate the CI build on your own machine to test pipeline changes before opening a pull request.
+  </Card>
+  <Card
+    title="GitHub repository"
+    icon="github"
+    href="https://github.com/MuhammedKalkan/OpenLens"
+  >
+    Browse the source, open issues, and submit pull requests on GitHub.
+  </Card>
+</CardGroup>
